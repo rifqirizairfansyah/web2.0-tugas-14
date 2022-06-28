@@ -1,66 +1,60 @@
-<script>
-  import { goto } from "@sapper/app.mjs";
-  import { authenticated } from "../stores/auth";
+<svelte:head>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</svelte:head>
 
-  let email = "",
-    password = "";
-
-  const submit = async () => {
-    var details = {
-      email,
-      password,
-    };
-
-    var formBody = [];
-    for (var property in details) {
-      var encodedKey = encodeURIComponent(property);
-      var encodedValue = encodeURIComponent(details[property]);
-      formBody.push(encodedKey + "=" + encodedValue);
-    }
-    formBody = formBody.join("&");
-
-    await fetch("http://localhost:4000/api/online-course/sessions/login", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: formBody,
-    })
-      .then((response) => response.json())
-      .then(async (responseJson) => {
-        if (responseJson.metadata.http_code == "200") {
-          authenticated.set(responseJson.data.access_token);
-          await goto('/');
-        } else {
-          alert("email atau password salah");
-        }
-      })
-      .catch((error) => {
-        console.error(error);
-      });
-  };
-</script>
-<div  class="form-signin">
-<form on:submit|preventDefault={submit}>
-  <h1 class="h3 mb-3 fw-normal">Please sign in</h1>
-
-  <input
-    bind:value={email}
-    type="email"
-    class="form-control"
-    placeholder="Email"
-    required
-  />
-
-  <input
-    bind:value={password}
-    type="password"
-    class="form-control"
-    placeholder="Password"
-    required
-  />
-
-  <button class="w-100 btn btn-lg btn-primary" type="submit">Sign in</button>
-</form>
+<div id="g_id_onload"
+     data-client_id="993299729529-6b37e8shjr3du0kprehcicc9vdcbaq9d.apps.googleusercontent.com"
+     data-context="signin"
+     data-ux_mode="popup"
+     data-callback="handleCredentialResponse"
+     data-nonce=""
+     data-auto_prompt="false">
 </div>
+
+<div class="g_id_signin"
+     data-type="standard"
+     data-shape="rectangular"
+     data-theme="filled_blue"
+     data-text="continue_with"
+     data-size="large"
+     data-logo_alignment="left"
+     data-width="500">
+</div>
+
+<Facebook/>
+
+{#if user}
+<h1>Login Berhasil</h1>
+{/if}
+
+<script>
+  
+  let user = null;
+  import { onMount } from "svelte";
+  import { authenticated } from "../stores/auth";
+  import { preferences } from "../stores/auth";
+  import Facebook from "../lib/Facebook.svelte";
+
+  function decodeJwtResponse(token) {
+      let base64Url = token.split('.')[1]
+      let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      let jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload)
+  }
+
+  let responsePayload;
+  globalThis.handleCredentialResponse = async (response) => {
+
+    responsePayload = decodeJwtResponse(response.credential);
+      user = responsePayload.name
+      console.log("ID: " + responsePayload.sub);
+      console.log('Full Name: ' + responsePayload.name);
+      console.log('Given Name: ' + responsePayload.given_name);
+      console.log('Family Name: ' + responsePayload.family_name);
+      console.log("Image URL: " + responsePayload.picture);
+      console.log("Email: " + responsePayload.email);
+      preferences.set("token");
+  }
+</script>
